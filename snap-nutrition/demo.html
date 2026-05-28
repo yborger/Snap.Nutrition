@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<!--
+  snap.nutrition — standalone demo
+  ─────────────────────────────────
+  This file is a self-contained demo that runs entirely in the browser.
+  It calls the Anthropic API directly from the client side.
+
+  IMPORTANT: This is for demo/prototyping only.
+  In production, never expose your API key in client-side code.
+  Use a backend proxy instead (see README for guidance).
+
+  To run:
+    1. Open this file in a browser
+    2. Enter your Anthropic API key when prompted, OR
+       replace the empty string in ANTHROPIC_API_KEY below
+-->
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>snap.nutrition — demo</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;1,9..144,300&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --cream: #F5F0E8; --ink: #1A1A14; --sage: #8A9E7B; --sage-light: #D4E2CA;
+      --rust: #C4622D; --rust-light: #F0D5C4; --muted: #8A8878;
+      --border: rgba(26,26,20,0.12); --card: #FDFAF4;
+    }
+    body { background: var(--cream); color: var(--ink); font-family: 'DM Mono', monospace; min-height: 100vh; padding: 2rem 1rem 4rem; display: flex; justify-content: center; }
+    .inner { width: 100%; max-width: 480px; }
+    header { display: flex; align-items: baseline; gap: 10px; margin-bottom: 2.5rem; padding-top: 0.5rem; }
+    .logo { font-family: 'Fraunces', serif; font-size: 28px; font-weight: 300; letter-spacing: -0.02em; }
+    .logo span { color: var(--rust); }
+    .tagline { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; }
+    .api-bar { display: flex; gap: 8px; margin-bottom: 16px; }
+    .api-bar input { flex: 1; font-family: 'DM Mono', monospace; font-size: 12px; padding: 10px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--card); color: var(--ink); outline: none; }
+    .api-bar input:focus { border-color: var(--sage); }
+    .api-note { font-size: 10px; color: var(--muted); margin-bottom: 20px; line-height: 1.6; }
+    .upload-zone { border: 1.5px dashed var(--border); border-radius: 16px; padding: 3rem 2rem; text-align: center; cursor: pointer; background: var(--card); transition: border-color 0.2s, background 0.2s; position: relative; overflow: hidden; }
+    .upload-zone:hover { border-color: var(--sage); background: #F0F5EC; }
+    .upload-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+    .upload-icon { width: 52px; height: 52px; background: var(--sage-light); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem; font-size: 22px; }
+    .upload-label { font-size: 13px; font-weight: 500; margin-bottom: 6px; }
+    .upload-sub { font-size: 11px; color: var(--muted); letter-spacing: 0.04em; }
+    .preview-wrap { position: relative; border-radius: 16px; overflow: hidden; background: var(--ink); aspect-ratio: 4/3; display: none; }
+    .preview-wrap img { width: 100%; height: 100%; object-fit: cover; opacity: 0.92; display: block; }
+    .preview-change { position: absolute; bottom: 12px; right: 12px; background: rgba(26,26,20,0.7); color: #fff; font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 0.06em; padding: 6px 14px; border-radius: 999px; border: none; cursor: pointer; }
+    .btn-primary { width: 100%; margin-top: 14px; background: var(--ink); color: var(--cream); font-family: 'DM Mono', monospace; font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; padding: 16px; border: none; border-radius: 12px; cursor: pointer; transition: background 0.2s, transform 0.1s; display: none; }
+    .btn-primary:hover { background: #2E2E24; }
+    .btn-primary:active { transform: scale(0.98); }
+    .loading { display: none; text-align: center; padding: 2.5rem 0; }
+    .dots { display: flex; gap: 8px; justify-content: center; margin-bottom: 1rem; }
+    .dot { width: 8px; height: 8px; background: var(--sage); border-radius: 50%; animation: bounce 1.2s ease-in-out infinite; }
+    .dot:nth-child(2) { animation-delay: 0.2s; }
+    .dot:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes bounce { 0%, 80%, 100% { transform: translateY(0); opacity: 0.4; } 40% { transform: translateY(-8px); opacity: 1; } }
+    .loading-text { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; }
+    .error-box { display: none; background: var(--rust-light); border: 1px solid rgba(196,98,45,0.2); border-radius: 10px; padding: 12px 16px; font-size: 12px; color: var(--rust); margin-top: 12px; line-height: 1.6; }
+    .results { display: none; margin-top: 20px; animation: fadeUp 0.4s ease; }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+    .meal-name { font-family: 'Fraunces', serif; font-size: 22px; font-weight: 300; font-style: italic; margin-bottom: 4px; line-height: 1.3; }
+    .meal-desc { font-size: 11px; color: var(--muted); letter-spacing: 0.04em; margin-bottom: 20px; line-height: 1.6; }
+    .macro-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+    .macro-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+    .macro-card.cals { grid-column: 1 / -1; background: var(--ink); color: var(--cream); border-color: transparent; display: flex; align-items: baseline; justify-content: space-between; }
+    .macro-label { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+    .macro-card.cals .macro-label { color: rgba(245,240,232,0.5); margin-bottom: 0; }
+    .macro-value { font-size: 28px; font-weight: 500; letter-spacing: -0.02em; line-height: 1; }
+    .macro-card.cals .macro-value { color: var(--cream); font-size: 36px; }
+    .macro-unit { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .macro-card.cals .macro-unit { color: rgba(245,240,232,0.5); font-size: 12px; }
+    .micro-section { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin-bottom: 10px; }
+    .micro-title { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+    .micro-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
+    .micro-row:last-child { border-bottom: none; }
+    .micro-val { color: var(--rust); font-weight: 500; }
+    .conf-wrap { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin-bottom: 16px; }
+    .conf-header { display: flex; justify-content: space-between; margin-bottom: 8px; }
+    .conf-label { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+    .conf-pct { font-size: 12px; font-weight: 500; color: var(--sage); }
+    .conf-track { height: 4px; background: var(--sage-light); border-radius: 999px; overflow: hidden; }
+    .conf-fill { height: 100%; background: var(--sage); border-radius: 999px; transition: width 0.8s cubic-bezier(0.4,0,0.2,1); width: 0%; }
+    .disclaimer { font-size: 10px; color: var(--muted); letter-spacing: 0.04em; line-height: 1.6; text-align: center; margin-bottom: 16px; }
+    .btn-save { width: 100%; background: var(--rust); color: #fff; font-family: 'DM Mono', monospace; font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; padding: 16px; border: none; border-radius: 12px; cursor: pointer; transition: background 0.2s, transform 0.1s; }
+    .btn-save:active { transform: scale(0.98); }
+    .divider { height: 1px; background: var(--border); margin: 24px 0; }
+    .log-title { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+    .log-item { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px 16px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; animation: fadeUp 0.3s ease; }
+    .log-item-name { font-size: 13px; font-style: italic; font-family: 'Fraunces', serif; font-weight: 300; }
+    .log-item-time { font-size: 10px; color: var(--muted); margin-top: 2px; }
+    .log-item-cal { font-size: 12px; color: var(--rust); font-weight: 500; }
+    .log-total { display: flex; justify-content: space-between; padding: 12px 4px 0; border-top: 1px solid var(--border); }
+    .log-total-label { font-size: 10px; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; }
+    .log-total-val { font-size: 12px; font-weight: 500; }
+  </style>
+</head>
+<body>
+<div class="inner">
+
+  <header>
+    <div class="logo">snap<span>.</span>nutrition</div>
+    <div class="tagline">photo → macros</div>
+  </header>
+
+  <div class="api-bar">
+    <input type="password" id="apiKey" placeholder="Enter Anthropic API key to use demo..." />
+  </div>
+  <div class="api-note">⚠ Demo only — your key is never stored or sent anywhere except directly to api.anthropic.com. Use a backend proxy in production.</div>
+
+  <div class="upload-zone" id="uploadZone">
+    <input type="file" accept="image/*" id="fileInput" />
+    <div class="upload-icon">📷</div>
+    <div class="upload-label">Photograph your meal</div>
+    <div class="upload-sub">tap to upload or drag & drop</div>
+  </div>
+
+  <div class="preview-wrap" id="previewWrap">
+    <img id="previewImg" src="" alt="meal preview" />
+    <button class="preview-change" id="changeBtn">change photo</button>
+    <input type="file" accept="image/*" id="fileInputChange" style="position:absolute;inset:0;opacity:0;cursor:pointer;" />
+  </div>
+
+  <button class="btn-primary" id="analyseBtn">analyse meal →</button>
+  <div class="loading" id="loading"><div class="dots"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div><div class="loading-text">reading your meal...</div></div>
+  <div class="error-box" id="errorBox"></div>
+
+  <div class="results" id="results">
+    <div class="meal-name" id="mealName"></div>
+    <div class="meal-desc" id="mealDesc"></div>
+    <div class="macro-grid">
+      <div class="macro-card cals"><div><div class="macro-label">Calories</div><div class="macro-value" id="vCal">—</div></div><div class="macro-unit">kcal</div></div>
+      <div class="macro-card"><div class="macro-label">Protein</div><div class="macro-value" id="vPro">—</div><div class="macro-unit">grams</div></div>
+      <div class="macro-card"><div class="macro-label">Carbs</div><div class="macro-value" id="vCarb">—</div><div class="macro-unit">grams</div></div>
+      <div class="macro-card"><div class="macro-label">Fat</div><div class="macro-value" id="vFat">—</div><div class="macro-unit">grams</div></div>
+      <div class="macro-card"><div class="macro-label">Fibre</div><div class="macro-value" id="vFib">—</div><div class="macro-unit">grams</div></div>
+    </div>
+    <div class="micro-section">
+      <div class="micro-title">Micronutrients (est.)</div>
+      <div class="micro-row"><span>Sugar</span><span class="micro-val" id="vSug">—</span></div>
+      <div class="micro-row"><span>Sodium</span><span class="micro-val" id="vSod">—</span></div>
+      <div class="micro-row"><span>Saturated fat</span><span class="micro-val" id="vSat">—</span></div>
+    </div>
+    <div class="conf-wrap">
+      <div class="conf-header"><div class="conf-label">Estimate confidence</div><div class="conf-pct" id="confPct">—</div></div>
+      <div class="conf-track"><div class="conf-fill" id="confFill"></div></div>
+    </div>
+    <div class="disclaimer">Estimates are based on visual analysis. Actual values may vary depending on portion size, preparation, and ingredients.</div>
+    <button class="btn-save" id="saveBtn">save to today's log →</button>
+  </div>
+
+  <div id="logSection" style="display:none;">
+    <div class="divider"></div>
+    <div class="log-title">Today's log</div>
+    <div id="logItems"></div>
+    <div class="log-total"><div class="log-total-label">Total calories</div><div class="log-total-val" id="logTotal">0 kcal</div></div>
+  </div>
+
+</div>
+<script>
+  const $ = id => document.getElementById(id);
+  let imgData = null, imgType = 'image/jpeg', currentResult = null, dailyLog = [];
+
+  function handleFile(file) {
+    if (!file || !file.type.startsWith('image/')) return;
+    const allowed = ['image/jpeg','image/png','image/gif','image/webp'];
+    imgType = allowed.includes(file.type) ? file.type : 'image/jpeg';
+    const r = new FileReader();
+    r.onload = e => {
+      imgData = e.target.result.split(',')[1];
+      $('previewImg').src = e.target.result;
+      $('uploadZone').style.display = 'none';
+      $('previewWrap').style.display = 'block';
+      $('analyseBtn').style.display = 'block';
+      $('results').style.display = 'none';
+      $('errorBox').style.display = 'none';
+    };
+    r.readAsDataURL(file);
+  }
+
+  $('fileInput').onchange = e => handleFile(e.target.files[0]);
+  $('fileInputChange').onchange = e => handleFile(e.target.files[0]);
+  $('changeBtn').onclick = e => { e.stopPropagation(); $('fileInputChange').click(); };
+  $('uploadZone').ondragover = e => { e.preventDefault(); $('uploadZone').style.borderColor='var(--sage)'; };
+  $('uploadZone').ondragleave = () => { $('uploadZone').style.borderColor=''; };
+  $('uploadZone').ondrop = e => { e.preventDefault(); $('uploadZone').style.borderColor=''; handleFile(e.dataTransfer.files[0]); };
+
+  $('analyseBtn').onclick = async () => {
+    const key = $('apiKey').value.trim();
+    if (!key) { alert('Please enter your Anthropic API key above.'); return; }
+    if (!imgData) return;
+
+    $('analyseBtn').style.display = 'none';
+    $('loading').style.display = 'block';
+    $('results').style.display = 'none';
+    $('errorBox').style.display = 'none';
+
+    const prompt = `You are a nutrition expert. Analyse this food image and return ONLY a JSON object with no extra text, no markdown, no backticks. Use this exact structure:
+{"meal_name":"short name","description":"one sentence","calories":450,"protein_g":32,"carbs_g":45,"fat_g":14,"fibre_g":6,"sugar_g":8,"sodium_mg":620,"saturated_fat_g":4,"confidence_pct":75}
+All values must be integers. Return ONLY the JSON.`;
+
+    try {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514', max_tokens: 1000,
+          messages: [{ role: 'user', content: [
+            { type: 'image', source: { type: 'base64', media_type: imgType, data: imgData } },
+            { type: 'text', text: prompt }
+          ]}]
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error?.message || `HTTP ${res.status}`);
+      const raw = data.content.filter(b=>b.type==='text').map(b=>b.text).join('');
+      const d = JSON.parse(raw.replace(/```json|```/g,'').trim());
+      currentResult = d;
+
+      $('mealName').textContent = d.meal_name;
+      $('mealDesc').textContent = d.description;
+      $('vCal').textContent = d.calories;
+      $('vPro').textContent = d.protein_g + 'g';
+      $('vCarb').textContent = d.carbs_g + 'g';
+      $('vFat').textContent = d.fat_g + 'g';
+      $('vFib').textContent = d.fibre_g + 'g';
+      $('vSug').textContent = d.sugar_g + 'g';
+      $('vSod').textContent = d.sodium_mg + 'mg';
+      $('vSat').textContent = d.saturated_fat_g + 'g';
+      const pct = Math.min(95, Math.max(0, d.confidence_pct));
+      $('confPct').textContent = pct + '%';
+      setTimeout(() => { $('confFill').style.width = pct + '%'; }, 100);
+
+      $('loading').style.display = 'none';
+      $('results').style.display = 'block';
+      $('analyseBtn').style.display = 'block';
+      $('analyseBtn').textContent = 'analyse again →';
+    } catch(e) {
+      $('loading').style.display = 'none';
+      $('analyseBtn').style.display = 'block';
+      $('errorBox').innerHTML = '<strong>Error:</strong> ' + e.message;
+      $('errorBox').style.display = 'block';
+    }
+  };
+
+  $('saveBtn').onclick = () => {
+    if (!currentResult) return;
+    dailyLog.push({ name: currentResult.meal_name, calories: currentResult.calories, time: new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) });
+    const el = document.createElement('div');
+    el.className = 'log-item';
+    el.innerHTML = `<div><div class="log-item-name">${dailyLog[dailyLog.length-1].name}</div><div class="log-item-time">${dailyLog[dailyLog.length-1].time}</div></div><div class="log-item-cal">${dailyLog[dailyLog.length-1].calories} kcal</div>`;
+    $('logItems').appendChild(el);
+    $('logTotal').textContent = dailyLog.reduce((s,e)=>s+e.calories,0).toLocaleString() + ' kcal';
+    $('logSection').style.display = 'block';
+    $('saveBtn').textContent = 'saved ✓';
+    $('saveBtn').style.background = 'var(--sage)';
+    setTimeout(() => { $('saveBtn').textContent = 'save to today\'s log →'; $('saveBtn').style.background = 'var(--rust)'; }, 2000);
+  };
+</script>
+</body>
+</html>
