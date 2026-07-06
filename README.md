@@ -12,3 +12,8 @@ That's where Snap.Nutrition comes in. Just like it says, *snap* a photo, let the
 - A place to add your photo
 - Nutrition information
 - A percent-accuracy rating on how likely the AI can estimate the nutrition
+
+
+## Current Design -> Goal Design
+The current design is set in a neutral-beige palette with very little customization. 
+For the future design, the set-up will be adjusted to follow the Gym App concept theme, with a more pop-art style to it. 
