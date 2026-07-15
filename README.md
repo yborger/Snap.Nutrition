@@ -1,6 +1,6 @@
 ## Snap.Nutrition
 
-> This app was vibe coded using Claude by Anthropic, during a seminar-style event hosted by Rewriting the Code. This app is entirely AI-generated and has not been customized as of now. 
+> This app was created using Claude Code by Anthropic, during a seminar-style event hosted by Rewriting the Code. This app is entirely AI-generated and has not been customized as of now. 
 
 ## Summary
 
