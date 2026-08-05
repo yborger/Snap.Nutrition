@@ -7,7 +7,7 @@ That's where Snap.Nutrition comes in. Just like it says, *snap* a photo, let the
 > This app was created using Claude Code by Anthropic, during a seminar-style event hosted by Rewriting the Code. This app is entirely AI-generated and has not been customized as of now. 
 
 ## How to run this
-> The description on how to run this that is inside the project is very technical and I would like non-technical audiences to also be able to run this locally.
+
 ### Before you start
 >> Make sure you have an Anthropic account (create for free at anthropic.com)
 >> a personal access token from Anthropic (do not share this publicly!)
