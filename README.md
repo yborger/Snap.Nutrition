@@ -10,7 +10,7 @@ That's where Snap.Nutrition comes in. Just like it says, *snap* a photo, let the
 
 ### Before you start
 >> Make sure you have an Anthropic account (create for free at anthropic.com)
->> a personal access token from Anthropic (do not share this publicly!)
+>> and  a personal access token from Anthropic (do not share this publicly!)
 
 ### Step by Step
 > Step 1: Download the zip file from Github, unzip it, and open the folder inside
